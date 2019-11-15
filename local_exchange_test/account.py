@@ -2,6 +2,7 @@
 class Account:
     def __init__(self, init_cash):
         """
+        position:
         {
             'open_date': date,
             'symbol': symbol,
@@ -11,7 +12,7 @@ class Account:
         }
         :param init_cash:
         """
-        self.cash = init_cash
+        self.cash = init_cash  # 上一次平仓后账户里的现金，不包含当前的浮动盈亏。股票交易也使保证金交易的方法来记录。
         self.position = []
 
     def __repr__(self):

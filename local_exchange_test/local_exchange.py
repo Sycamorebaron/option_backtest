@@ -8,43 +8,50 @@ from local_exchange_test.stock_market import StockMarket
 
 class LocalExchange:
     def __init__(self, init_cash, stock_prop):
+        # 50etf 的交易时间作为交易日历
         self.trading_calender = TradingCalender(
             init_index='50etf',
             engine=option_eg
         )
+        # 期权数据获取器，base，即基准为不复权的50etf价格，主要用于筛选实值虚值期权
         self.option_data_fetcher = DataFetcher(
             engine=option_eg,
             schema='trading_data',
             base='50etf',
             label='option_code'
         )
+        # 股票、指数数据获取器
         self.stock_data_fetcher = DataFetcher(
             engine=stk_eg,
             schema='time_cs',
             base='sh000016',
             label='code'
         )
+        # 股票账户
         self.stock_account = Account(
             init_cash=init_cash * stock_prop
         )
+        # 期权账户
         self.option_account = Account(
             init_cash=init_cash * (1 - stock_prop)
         )
+        # 期权市场。完成一些期权市场特有的操作，比如选择实值虚值期权，选择标准、非标准期权
         self.option_market = OptionMarket(
             data_fetcher=self.option_data_fetcher,
             trading_calender=self.trading_calender
         )
+        # 股票市场。完成一些股票市场特有的操作，比如查看涨跌停
         self.stock_market = StockMarket(
             data_fetcher=self.stock_data_fetcher,
             trading_calender=self.trading_calender
         )
-        # 使用 Slippage
+        # 手续费，之后可以抽象成Slippage
         self.option_fee = 5
         self.stock_fee = 0.002
 
     def open_order(self, market, symbol, price, amount, date, check_cash):
         """
-        开仓下单
+        开仓下单，纯开仓或加仓。但反向开仓需要先调用close_order方法平仓，再用本方法开仓
         :param market:
         :param symbol:
         :param price:
@@ -90,7 +97,7 @@ class LocalExchange:
 
     def close_order(self, market, symbol, price, amount, contract_num=1):
         """
-        平仓下单
+        平仓下单，纯平仓或减仓。反向开仓时先调用本方法平仓，再调用open_order方法开仓
         :param market:
         :param symbol:
         :param price:
@@ -117,21 +124,19 @@ class LocalExchange:
                 elif abs(amount) > abs(pos['amount']):
                     print(market, symbol, price, amount)
                     raise Exception('NOT ENOUGH POSITION TO CLOSE')
-                # 股票多头平仓，进来的amount是负数，计算收益时是 -amount * (平仓价 - 开仓价)
-                # 期权多头平仓，进来的amount是负数，计算收益时是 -amount * (平仓价 - 开仓价)
-                # 期权空头平仓，进来的amount是正数，计算收益时是 -amount * (平仓价 - 开仓价)
-                account.cash += -amount * (price - pos['open_price']) * contract_num  # 如果是期权，这里需要乘以合约单位
+
+                account.cash += -amount * (price - pos['open_price']) * contract_num  # 如果是期权，这里需要乘以!=1的合约单位
                 account.position[i]['amount'] += amount
 
                 account.position[i]['pnl'] = account.position[i]['pnl'] * abs(account.position[i]['amount']) / (abs(account.position[i]['amount']) + abs(amount))
 
-            # 如果全部减仓完了，说明是完全平仓
+            # 如果全部减仓完了，说明是完全平仓，清除记录
             if account.position[i]['amount'] == 0:
                 account.position[i] = {}
 
     def equity(self, date):
         """
-        用当天的收盘价计算当天的总权益
+        用当天的收盘价计算当天的总权益，权益 = 现金 + 浮动盈亏
         :return:
         """
         self.bookkeeping(date=date)
@@ -171,7 +176,6 @@ class LocalExchange:
             self.option_account.position[i]['pnl'] = (price - pos['open_price']) * pos['amount'] * 10000
 
         print('当前期权账户情况\n', self.option_account, '\n')
-        # print('当前期权价格\n', d_option_price)
         for j in range(len(self.stock_account.position)):
             pos = self.stock_account.position[j]
             if date < pos['open_date']:

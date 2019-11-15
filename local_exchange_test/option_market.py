@@ -64,14 +64,13 @@ class OptionMarket:
 
     def get_target_option(self, target_side, inner, base_price, date, expire_limit):
         """
-        获取目标期权
-        筛选当月
+        获取当月目标期权
         2：实二档；1：实一档；0：平值；-1：虚一档；-2：虚二挡
         :param target_pos:
         :param inner:
         :param base_price:
         :param date:
-        :param expire_limit: 距离到期还有几天直接去掉
+        :param expire_limit: 距离到期还有expire_limit天时，直接选择次月
         :return:
         """
         option_info = self.data_fetcher.get_option_trading_data(date=date)
@@ -89,10 +88,10 @@ class OptionMarket:
         earliest_exer_date = option_info['exer_date'].min()
         _ch = option_info.loc[option_info['exer_date'] == earliest_exer_date]
 
-        # 距离当月期权到期超过5天
+        # 距离当月期权到期超过x天
         if earliest_exer_date - date > timedelta(days=expire_limit):
             option_info = option_info.loc[option_info['exer_date'] == earliest_exer_date]
-        # 距离当月期权到期不足5天
+        # 距离当月期权到期不足x天
         else:
             option_info = option_info.loc[option_info['exer_date'] > earliest_exer_date].copy()
             earliest_exer_date = option_info['exer_date'].min()
@@ -106,7 +105,7 @@ class OptionMarket:
                 at_price = exer_price
                 at_price_gap = abs(exer_price - base_price)
 
-        # 找到虚值三档
+        # 找到虚值inner档
         if target_side == 'call':  # 购
             target_side_option = option_info.loc[option_info['trade_code'].apply(lambda x: 'C' in x)]
 

@@ -1,6 +1,8 @@
 from local_exchange_test.util import *
 
-
+"""
+逐日推进的日历，用于控制时间，回测开始以及回测结束。
+"""
 class EarthCalender:
     def __init__(self, begin, end):
         self._begin = begin
